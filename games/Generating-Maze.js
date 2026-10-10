@@ -10,6 +10,7 @@
 const player = "p"
 const wall = "w"
 const goal = "g"
+const coin = "c"
 setLegend([player, bitmap`
 .......55.......
 .....555555.....
@@ -60,9 +61,29 @@ setLegend([player, bitmap`
 ...3003.........
 ...3003.........
 ...3003.........
-...3333.........`])
+...3333.........`],
+[coin, bitmap`
+.......66.......
+.....666666.....
+...6666FF6666...
+..666FFFFFF666..
+..66FFFFFFFF66..
+.666FF6FF666666.
+.666FF6FF666666.
+6666FFFFFFF66666
+66666FFFFFFF6666
+.666666FF6FF666.
+.666666FF6FF666.
+..66FFFFFFFF66..
+..666FFFFFF666..
+...6666FF6666...
+.....666666.....
+.......66.......`])
 
 setSolids([player, wall])
+
+var coins_collected = 0
+var steps_taken = 0
 
 //generate level
 function gcd(a, b) {
@@ -90,6 +111,8 @@ function generateMaze(height, width) {
   var furthest_distance = 0
   var furthest_x = 0
   var furthest_y = 0
+  coins_collected = 0
+  steps_taken = 0
 
   function move(amount) {    
     switch (direction) {
@@ -135,6 +158,26 @@ function generateMaze(height, width) {
   maze()
 
   level[furthest_y][furthest_x] = "p"
+
+  var validCoin = []
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) { 
+      if (level[y][x] == ".") {
+        validCoin.push({x: x, y: y})
+      }
+    }
+  }
+
+  validCoin.sort(() => Math.random() - 0.5)
+  
+  for (let coins = 0; coins < Math.min(Math.floor(validCoin.length / 10), validCoin.length); coins++) {
+    if (validCoin.length > 0) {
+      var spawn = validCoin[coins]
+      level[spawn.y][spawn.x] = "c"
+    }
+  }
+  
   setMap(level.map(row => row.join('')).join('\n'))
 }
 
@@ -146,20 +189,31 @@ var size = 10
 generateMaze(Math.round(max_height/size), Math.round(max_width/size))
 
 // player movement
+
+function move(x, forward) {
+  var play = getFirst(player)
+  var player_pos = [play.x, play.y]
+  if (x) {play.x += forward ? 1 : -1}
+  else {play.y += forward ? 1 : -1}
+  if (play.x !== player_pos[0] || play.y !== player_pos[1]) {
+   steps_taken++
+  }
+}
+
 onInput("w", () => {
-  getFirst(player).y -= 1
+  move(false, false)
 })
 
 onInput("a", () => {
-  getFirst(player).x -= 1
+  move(true, false)
 })
 
 onInput("s", () => {
-  getFirst(player).y += 1
+  move(false, true)
 })
 
 onInput("d", () => {
-  getFirst(player).x += 1
+  move(true, true)
 })
 
 // change size
@@ -186,6 +240,14 @@ onInput("l", () => {
 var won=false
 
 afterInput(() => {
+  for (const sprite of tilesWith(coin, player)) {
+    var c = sprite.find(sprite => sprite.type === coin)
+    if (c) { 
+      clearTile(c.x, c.y)
+      addSprite(c.x, c.y, player)
+      coins_collected++
+    }
+  }
   if (won) {
     clearText()
     won=false
@@ -194,5 +256,7 @@ afterInput(() => {
   if (tilesWith(goal, player).length > 0 && !won) {
     won=true
     addText("you win!", { y: 4, color: color`3` })
+    addText("Steps taken: " + steps_taken, { y: 5, color: color`3` })
+    addText("Coins collected: " + coins_collected, { y: 6, color: color`3` })
   }
 })
